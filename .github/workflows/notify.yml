@@ -3,9 +3,9 @@ name: Telegram Notifications
 on:
   schedule:
     # Утро 8:00 по МСК (UTC+3 = 05:00 UTC)
-    - cron: '0 5 * * *'
+    - cron: "0 5 * * *"
     # Вечер 19:00 по МСК (UTC+3 = 16:00 UTC)
-    - cron: '0 16 * * *'
+    - cron: "0 16 * * *"
   workflow_dispatch: # ручной запуск для теста
 
 jobs:
@@ -17,11 +17,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Send Telegram notification
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TASKS_DATA: ${{ secrets.TASKS_DATA }}
-        run: node .github/scripts/notify.js
+        run: node .github/scripts/notify.cjs
