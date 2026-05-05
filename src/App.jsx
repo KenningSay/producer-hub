@@ -25,6 +25,7 @@ import {
   Sparkles,
   RotateCcw,
 } from "lucide-react";
+import STLViewer from "./STLViewer.jsx";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -1816,6 +1817,7 @@ export default function App() {
         {/* ── FILES TAB ── */}
         {tab === "files" && (
           <>
+            <STLViewer />
             <GithubSettings cfg={ghCfg} setCfg={setGhCfg} />
             <UploadPanel cfg={ghCfg} />
             <div style={S.panel("rgba(52,211,153,0.2)")}>
