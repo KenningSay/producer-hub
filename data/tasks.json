@@ -1,0 +1,56 @@
+[
+  {
+    "task": "Найти пустой STL жетона Battlefield (база для кастома)",
+    "status": "pending",
+    "category": "3d",
+    "date": "2026-05-06"
+  },
+  {
+    "task": "Сделать скоростной пресет в слайсере (цель 15 мин/жетон)",
+    "status": "pending",
+    "category": "3d",
+    "date": "2026-05-06"
+  },
+  {
+    "task": "Добавить hub.layerp.ru в OBS (проверка прозрачности)",
+    "status": "pending",
+    "category": "stream",
+    "date": "2026-05-06"
+  },
+  {
+    "task": "Тест донат-алерта (звук + визуал в стиле BF6)",
+    "status": "pending",
+    "category": "stream",
+    "date": "2026-05-06"
+  },
+  {
+    "task": "Записать POV: Синхронизация кода и принтера для Reels",
+    "status": "pending",
+    "category": "content",
+    "date": "2026-05-06"
+  },
+  {
+    "task": "Сделать монтаж Reels 'Подготовка к Армейскому Марафону'",
+    "status": "pending",
+    "category": "content",
+    "date": "2026-05-06"
+  },
+  {
+    "task": "Проверить API-запросы в консоли дашборда (нет ли ошибок 404)",
+    "status": "pending",
+    "category": "coding",
+    "date": "2026-05-06"
+  },
+  {
+    "task": "Первый тестовый прогон печати жетона в прямом эфире",
+    "status": "pending",
+    "category": "3d",
+    "date": "2026-05-09"
+  },
+  {
+    "task": "Марафон в Minecraft и BF6: Сбор на мечту",
+    "status": "pending",
+    "category": "stream",
+    "date": "2026-05-09"
+  }
+]
