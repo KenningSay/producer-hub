@@ -1,15 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Plus,
-  Trash2,
-  CheckSquare,
-  Square,
   Target,
   Zap,
   Cpu,
   Film,
   Radio,
-  ChevronRight,
   X,
   Upload,
   FolderOpen,
@@ -26,6 +21,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import STLViewer from "./STLViewer.jsx";
+import CalendarView from "./CalendarView.jsx";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -60,38 +56,38 @@ const CATEGORIES = [
   },
 ];
 
-const PERIODS = [
-  { id: "all", label: "ВСЕ" },
-  { id: "day", label: "ДЕНЬ" },
-  { id: "week", label: "НЕДЕЛЯ" },
-  { id: "month", label: "МЕСЯЦ" },
-];
+const GOAL = 100000;
+const FF = "'Share Tech Mono','Courier New',monospace";
+
+function todayStr() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().split("T")[0];
+}
 
 const DEFAULT_TASKS = [
   {
     id: 1,
     text: "Найти STL жетона BF6",
     category: "3d",
-    period: "day",
+    date: todayStr(),
     done: false,
   },
   {
     id: 2,
     text: "Установить Cursor",
     category: "coding",
-    period: "day",
+    date: todayStr(),
     done: false,
   },
   {
     id: 3,
     text: "Снять прогрев в Reels",
     category: "content",
-    period: "week",
+    date: null,
     done: false,
   },
 ];
-
-const GOAL = 100000;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -111,16 +107,15 @@ function save(key, val) {
 
 function detectCategory(text) {
   const t = text.toLowerCase();
-  if (/stl|3d|печат|модел|филамент|пластик|slicer|cura|принт|нить/i.test(t))
-    return "3d";
-  if (/стрим|stream|live|twitch|obs|overlay|донат|donation|вещани/i.test(t))
+  if (/stl|3d|печат|модел|пластик|slicer|cura|принт|нить/i.test(t)) return "3d";
+  if (/стрим|stream|live|twitch|obs|overlay|донат|вещани/i.test(t))
     return "stream";
   if (
     /код|code|git|npm|react|vite|cursor|программ|deploy|api|сайт|репо/i.test(t)
   )
     return "coding";
   if (
-    /reels|видео|фото|контент|съёмк|съемк|монтаж|youtube|tiktok|пост|сценар|ролик/i.test(
+    /reels|видео|фото|контент|съёмк|съемк|монтаж|youtube|tiktok|пост|ролик/i.test(
       t,
     )
   )
@@ -128,57 +123,51 @@ function detectCategory(text) {
   return "stream";
 }
 
-function detectPeriod(line) {
-  const t = line.toLowerCase();
-  if (/сегодня|today|\bдень\b|\bday\b|на день/i.test(t)) return "day";
-  if (/недел|week|на неделю|на неделе/i.test(t)) return "week";
-  if (/месяц|month|на месяц/i.test(t)) return "month";
-  return null;
-}
-
 function parseAIPlan(text) {
   const tasks = [];
-  let currentPeriod = "week";
-  const lines = text.split("\n");
-  for (const raw of lines) {
+  let curDate = null;
+  const today = todayStr();
+  const nextWeekDay = (offset) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d.toISOString().split("T")[0];
+  };
+
+  for (const raw of text.split("\n")) {
     const line = raw.trim();
     if (!line) continue;
-    // Check if it's a section header
-    const pd = detectPeriod(line);
-    if (pd && line.length < 60) {
-      currentPeriod = pd;
+    const l = line.toLowerCase();
+    if (/сегодня|today|\bдень\b|\bday\b|на день/i.test(l) && line.length < 60) {
+      curDate = today;
       continue;
     }
-    // Check if it's a task line
+    if (/завтра|tomorrow/i.test(l) && line.length < 60) {
+      curDate = nextWeekDay(1);
+      continue;
+    }
+    if (/недел|week/i.test(l) && line.length < 60) {
+      curDate = null;
+      continue;
+    }
+    if (/месяц|month/i.test(l) && line.length < 60) {
+      curDate = null;
+      continue;
+    }
     const m = line.match(/^(?:[-*•·✅☐□▸►→✓\d]+[.):\s]+)\s*(.+)/);
     const taskText = m
       ? m[1].trim()
       : line.length > 3 && line.length < 200 && !/^#+/.test(line)
         ? line
         : null;
-    if (taskText) {
-      // period override from inline keywords
-      const inlinePeriod = detectPeriod(taskText) || currentPeriod;
+    if (taskText)
       tasks.push({
         text: taskText,
         category: detectCategory(taskText),
-        period: inlinePeriod,
+        date: curDate,
       });
-    }
   }
   return tasks;
 }
-
-function fmtDate(ts) {
-  return new Date(ts).toLocaleDateString("ru-RU", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-// ─── GitHub upload ────────────────────────────────────────────────────────────
 
 async function uploadToGitHub({ token, owner, repo, path, fileObj, onStatus }) {
   onStatus("Читаем файл...");
@@ -228,8 +217,6 @@ async function uploadToGitHub({ token, owner, repo, path, fileObj, onStatus }) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const FF = "'Share Tech Mono','Courier New',monospace";
-
 const S = {
   root: {
     background: "#080B0F",
@@ -250,7 +237,7 @@ const S = {
     zIndex: 0,
   },
   wrap: {
-    maxWidth: 860,
+    maxWidth: 920,
     margin: "0 auto",
     padding: "24px 20px 60px",
     position: "relative",
@@ -277,12 +264,6 @@ const S = {
     borderRadius: 4,
     padding: "12px 16px",
   },
-  num: (c = "#00C8FF", fs = 32) => ({
-    fontSize: fs,
-    fontWeight: 700,
-    color: c,
-    lineHeight: 1.1,
-  }),
   inp: (a = "rgba(0,200,255,0.2)") => ({
     background: "rgba(0,200,255,0.04)",
     border: `1px solid ${a}`,
@@ -334,25 +315,6 @@ const S = {
     display: "flex",
     alignItems: "center",
   },
-  chk: {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: 3,
-    display: "flex",
-    alignItems: "center",
-  },
-  row: (d) => ({
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: "12px 16px",
-    background: d ? "rgba(0,200,255,0.03)" : "rgba(13,18,24,0.7)",
-    border: `1px solid ${d ? "rgba(0,200,255,0.06)" : "rgba(0,200,255,0.12)"}`,
-    borderRadius: 3,
-    marginBottom: 8,
-    transition: "opacity 0.3s",
-  }),
   pill: (c) => ({
     fontSize: 11,
     letterSpacing: "0.12em",
@@ -361,58 +323,7 @@ const S = {
     border: `1px solid ${c.border}`,
     color: c.color,
     borderRadius: 2,
-    whiteSpace: "nowrap",
   }),
-  pTag: (p) => {
-    const m = {
-      day: { c: "#00C8FF", b: "rgba(0,200,255,0.1)" },
-      week: { c: "#FF9B35", b: "rgba(255,155,53,0.1)" },
-      month: { c: "#A78BFA", b: "rgba(167,139,250,0.1)" },
-    };
-    const x = m[p] || m.week;
-    return {
-      fontSize: 10,
-      letterSpacing: "0.12em",
-      padding: "2px 7px",
-      background: x.b,
-      border: `1px solid ${x.c}44`,
-      color: x.c,
-      borderRadius: 2,
-      whiteSpace: "nowrap",
-    };
-  },
-  catTab: (a, c) => ({
-    padding: "6px 14px",
-    borderRadius: 2,
-    fontSize: 12,
-    letterSpacing: "0.1em",
-    cursor: "pointer",
-    border: `1px solid ${a ? c.border : "rgba(0,200,255,0.1)"}`,
-    background: a ? c.bg : "transparent",
-    color: a ? c.color : "#3A6A7A",
-  }),
-  pTab: (a, p) => {
-    const cols = {
-      all: "#00C8FF",
-      day: "#00C8FF",
-      week: "#FF9B35",
-      month: "#A78BFA",
-    };
-    const c = cols[p.id] || "#00C8FF";
-    return {
-      flex: 1,
-      background: a ? `${c}18` : "transparent",
-      border: `1px solid ${a ? c + "55" : "rgba(0,200,255,0.12)"}`,
-      borderRadius: 2,
-      padding: "7px 4px",
-      cursor: "pointer",
-      fontSize: 11,
-      fontFamily: FF,
-      color: a ? c : "#3A6A7A",
-      letterSpacing: "0.15em",
-      transition: "all 0.15s",
-    };
-  },
   mainTab: (a, c) => ({
     flex: 1,
     background: a
@@ -434,14 +345,11 @@ const S = {
 function ImportModal({ onClose, onImport }) {
   const [text, setText] = useState("");
   const [preview, setPreview] = useState(null);
+  const today = todayStr();
 
   const parse = () => setPreview(parseAIPlan(text));
-
-  const updatePreview = (i, field, val) => {
-    setPreview((p) => p.map((t, j) => (j === i ? { ...t, [field]: val } : t)));
-  };
-
-  const pLabel = { day: "День", week: "Неделя", month: "Месяц" };
+  const upd = (i, f, v) =>
+    setPreview((p) => p.map((t, j) => (j === i ? { ...t, [f]: v } : t)));
 
   return (
     <div
@@ -482,14 +390,10 @@ function ImportModal({ onClose, onImport }) {
           >
             ИМПОРТ ПЛАНА
           </span>
-          <button
-            style={{ ...S.iBtn, marginLeft: "auto", color: "#4A7A8A" }}
-            onClick={onClose}
-          >
+          <button style={{ ...S.iBtn, marginLeft: "auto" }} onClick={onClose}>
             <X size={16} />
           </button>
         </div>
-
         {!preview ? (
           <>
             <div
@@ -498,11 +402,12 @@ function ImportModal({ onClose, onImport }) {
                 color: "#3A6A7A",
                 marginBottom: 10,
                 letterSpacing: "0.1em",
-                lineHeight: 1.6,
+                lineHeight: 1.7,
               }}
             >
-              Вставь план от нейросети. Поддерживаются разделы «На сегодня / На
-              неделю / На месяц» и любые списки с тире, цифрами или точками.
+              Вставь план. Разделы «На сегодня:» → попадают на сегодня. «На
+              неделю:» / «На месяц:» → в бэклог, оттуда перетащишь в нужный
+              день.
             </div>
             <textarea
               style={{
@@ -514,14 +419,14 @@ function ImportModal({ onClose, onImport }) {
                 boxSizing: "border-box",
               }}
               placeholder={
-                "Пример:\n\nНа сегодня:\n- Найти STL жетона BF6\n- Снять прогрев в Reels\n\nНа неделю:\n- Установить Cursor и настроить\n- Залить код на GitHub\n\nНа месяц:\n- Запустить 3D-магазин\n- Набрать 500 подписчиков на стрим"
+                "На сегодня:\n- Найти STL жетона BF6\n- Снять прогрев в Reels\n\nНа неделю:\n- Установить Cursor\n- Залить код на GitHub"
               }
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
             <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
               <button style={S.btn()} onClick={parse} disabled={!text.trim()}>
-                РАЗОБРАТЬ ПЛАН
+                РАЗОБРАТЬ
               </button>
               <button style={S.ghost} onClick={onClose}>
                 ОТМЕНА
@@ -538,9 +443,8 @@ function ImportModal({ onClose, onImport }) {
                 letterSpacing: "0.1em",
               }}
             >
-              Найдено задач:{" "}
-              <span style={{ color: "#00C8FF" }}>{preview.length}</span>. Можешь
-              изменить категорию и период до импорта.
+              Найдено:{" "}
+              <span style={{ color: "#00C8FF" }}>{preview.length}</span> задач
             </div>
             <div
               style={{
@@ -560,7 +464,7 @@ function ImportModal({ onClose, onImport }) {
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
-                      padding: "9px 12px",
+                      padding: "8px 12px",
                       background: "rgba(0,0,0,0.4)",
                       border: "1px solid rgba(0,200,255,0.1)",
                       borderRadius: 3,
@@ -572,9 +476,7 @@ function ImportModal({ onClose, onImport }) {
                     <select
                       style={{ ...S.sel, padding: "4px 6px", fontSize: 11 }}
                       value={t.category}
-                      onChange={(e) =>
-                        updatePreview(i, "category", e.target.value)
-                      }
+                      onChange={(e) => upd(i, "category", e.target.value)}
                     >
                       {CATEGORIES.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -584,14 +486,17 @@ function ImportModal({ onClose, onImport }) {
                     </select>
                     <select
                       style={{ ...S.sel, padding: "4px 6px", fontSize: 11 }}
-                      value={t.period}
+                      value={t.date || "null"}
                       onChange={(e) =>
-                        updatePreview(i, "period", e.target.value)
+                        upd(
+                          i,
+                          "date",
+                          e.target.value === "null" ? null : e.target.value,
+                        )
                       }
                     >
-                      <option value="day">День</option>
-                      <option value="week">Неделя</option>
-                      <option value="month">Месяц</option>
+                      <option value={today}>Сегодня</option>
+                      <option value="null">Бэклог</option>
                     </select>
                     <button
                       style={{ ...S.iBtn, color: "#FF4A4A" }}
@@ -636,14 +541,12 @@ function ImportModal({ onClose, onImport }) {
 
 function ArchivePanel({ archive, onRestore, onClear }) {
   const [open, setOpen] = useState(false);
-
   if (archive.length === 0) return null;
 
   const grouped = archive.reduce((acc, t) => {
     const day = new Date(t.completedAt).toLocaleDateString("ru-RU", {
       day: "numeric",
       month: "long",
-      year: "numeric",
     });
     if (!acc[day]) acc[day] = [];
     acc[day].push(t);
@@ -658,7 +561,6 @@ function ArchivePanel({ archive, onRestore, onClear }) {
           alignItems: "center",
           gap: 10,
           cursor: "pointer",
-          userSelect: "none",
         }}
         onClick={() => setOpen((o) => !o)}
       >
@@ -673,13 +575,12 @@ function ArchivePanel({ archive, onRestore, onClear }) {
           {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </span>
       </div>
-
       {open && (
         <div style={{ marginTop: 14 }}>
           {Object.entries(grouped)
             .reverse()
             .map(([day, tasks]) => (
-              <div key={day} style={{ marginBottom: 14 }}>
+              <div key={day} style={{ marginBottom: 12 }}>
                 <div
                   style={{
                     fontSize: 10,
@@ -701,11 +602,11 @@ function ArchivePanel({ archive, onRestore, onClear }) {
                         display: "flex",
                         alignItems: "center",
                         gap: 10,
-                        padding: "8px 12px",
+                        padding: "7px 12px",
                         background: "rgba(52,211,153,0.04)",
                         border: "1px solid rgba(52,211,153,0.08)",
                         borderRadius: 3,
-                        marginBottom: 5,
+                        marginBottom: 4,
                       }}
                     >
                       <CheckCircle size={13} color="#2A6A4A" />
@@ -720,15 +621,8 @@ function ArchivePanel({ archive, onRestore, onClear }) {
                         {t.text}
                       </span>
                       <span style={S.pill(cat)}>{cat.label.toUpperCase()}</span>
-                      <span style={{ fontSize: 10, color: "#1A4A3A" }}>
-                        {new Date(t.completedAt).toLocaleTimeString("ru-RU", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
                       <button
                         style={{ ...S.iBtn, color: "#2A6A4A" }}
-                        title="Вернуть в список"
                         onClick={() => onRestore(t.id)}
                       >
                         <RotateCcw size={12} />
@@ -784,12 +678,11 @@ function GithubSettings({ cfg, setCfg }) {
         <span
           style={{
             fontSize: 11,
-            letterSpacing: "0.1em",
             marginLeft: "auto",
             color: cfg.token ? "#34D399" : "#FF6B35",
           }}
         >
-          ● {cfg.token ? "ТОКЕН СОХРАНЁН" : "НЕТ ТОКЕНА"}
+          ● {cfg.token ? "ПОДКЛЮЧЕНО" : "НЕТ ТОКЕНА"}
         </span>
       </div>
       {open && (
@@ -801,9 +694,7 @@ function GithubSettings({ cfg, setCfg }) {
             gap: 8,
           }}
         >
-          <div
-            style={{ fontSize: 11, color: "#3A6A7A", letterSpacing: "0.12em" }}
-          >
+          <div style={{ fontSize: 11, color: "#3A6A7A" }}>
             GitHub → Settings → Developer settings → Personal access tokens →
             Classic → scope: repo
           </div>
@@ -821,14 +712,7 @@ function GithubSettings({ cfg, setCfg }) {
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
           >
             <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "#3A6A7A",
-                  marginBottom: 4,
-                  letterSpacing: "0.1em",
-                }}
-              >
+              <div style={{ fontSize: 11, color: "#3A6A7A", marginBottom: 4 }}>
                 OWNER
               </div>
               <input
@@ -839,14 +723,7 @@ function GithubSettings({ cfg, setCfg }) {
               />
             </div>
             <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "#3A6A7A",
-                  marginBottom: 4,
-                  letterSpacing: "0.1em",
-                }}
-              >
+              <div style={{ fontSize: 11, color: "#3A6A7A", marginBottom: 4 }}>
                 REPO
               </div>
               <input
@@ -873,7 +750,6 @@ function UploadPanel({ cfg }) {
   const [results, setResults] = useState([]);
   const [drag, setDrag] = useState(false);
   const ref = useRef();
-
   const addFiles = (list) => setFiles((p) => [...p, ...Array.from(list)]);
   const extColor = (name) =>
     ({
@@ -930,11 +806,7 @@ function UploadPanel({ cfg }) {
         }}
       >
         <FolderOpen size={13} color="#4A7A8A" />
-        <span
-          style={{ fontSize: 11, color: "#4A7A8A", letterSpacing: "0.1em" }}
-        >
-          ПАПКА:
-        </span>
+        <span style={{ fontSize: 11, color: "#4A7A8A" }}>ПАПКА:</span>
         <input
           style={{ ...S.inp(), width: 220, padding: "6px 11px", fontSize: 13 }}
           value={folder}
@@ -971,13 +843,7 @@ function UploadPanel({ cfg }) {
           color={drag ? "#00C8FF" : "#2A5A6A"}
           style={{ margin: "0 auto 6px" }}
         />
-        <div
-          style={{
-            fontSize: 13,
-            color: drag ? "#00C8FF" : "#4A7A8A",
-            letterSpacing: "0.1em",
-          }}
-        >
+        <div style={{ fontSize: 13, color: drag ? "#00C8FF" : "#4A7A8A" }}>
           {drag ? "ОТПУСТИ" : "ПЕРЕТАЩИ ФАЙЛЫ ИЛИ НАЖМИ"}
         </div>
         <div style={{ fontSize: 11, color: "#2A4A5A", marginTop: 3 }}>
@@ -1122,26 +988,29 @@ function UploadPanel({ cfg }) {
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [tasks, setTasks] = useState(() => load("pcc_tasks2", DEFAULT_TASKS));
+  const [tasks, setTasks] = useState(() => {
+    const saved = load("pcc_tasks3", null);
+    if (saved) return saved;
+    // migrate from old format
+    const old = load("pcc_tasks2", null) || load("pcc_tasks", DEFAULT_TASKS);
+    return old.map((t) => ({
+      ...t,
+      date:
+        t.date !== undefined ? t.date : t.period === "day" ? todayStr() : null,
+    }));
+  });
   const [archive, setArchive] = useState(() => load("pcc_archive", []));
   const [donated, setDonated] = useState(() => load("pcc_donated", 0));
-  const [iText, setIText] = useState("");
-  const [iCat, setICat] = useState("stream");
-  const [iPeriod, setIPeriod] = useState("day");
-  const [catFilter, setCatFilter] = useState("all");
-  const [periodFilter, setPeriodFilter] = useState("all");
   const [donIn, setDonIn] = useState("");
-  const [showAdd, setShowAdd] = useState(false);
   const [tab, setTab] = useState("tasks");
   const [showImport, setShowImport] = useState(false);
   const [ghCfg, setGhCfg] = useState(() =>
     load("pcc_gh", { token: "", owner: "", repo: "" }),
   );
   const nextId = useRef(Date.now());
-  const addRef = useRef();
 
   useEffect(() => {
-    save("pcc_tasks2", tasks);
+    save("pcc_tasks3", tasks);
   }, [tasks]);
   useEffect(() => {
     save("pcc_archive", archive);
@@ -1149,57 +1018,28 @@ export default function App() {
   useEffect(() => {
     save("pcc_donated", donated);
   }, [donated]);
-  useEffect(() => {
-    if (showAdd && addRef.current) addRef.current.focus();
-  }, [showAdd]);
 
   const activeTasks = tasks.filter((t) => !t.done);
+  const doneTasks = tasks.filter((t) => t.done);
   const total = tasks.length;
-  const doneN = tasks.filter((t) => t.done).length;
-  const pct = total === 0 ? 0 : Math.round((doneN / total) * 100);
+  const pct = total === 0 ? 0 : Math.round((doneTasks.length / total) * 100);
   const goalPct = Math.min(100, Math.round((donated / GOAL) * 100));
-
-  const getCat = (id) => CATEGORIES.find((c) => c.id === id) || CATEGORIES[0];
-
-  const filtered = tasks.filter((t) => {
-    if (t.done) return false;
-    if (catFilter !== "all" && t.category !== catFilter) return false;
-    if (periodFilter !== "all" && t.period !== periodFilter) return false;
-    return true;
-  });
-
-  const addTask = () => {
-    if (!iText.trim()) return;
-    setTasks((p) => [
-      ...p,
-      {
-        id: nextId.current++,
-        text: iText.trim(),
-        category: iCat,
-        period: iPeriod,
-        done: false,
-      },
-    ]);
-    setIText("");
-    setShowAdd(false);
-  };
+  const todayTasks = activeTasks.filter((t) => t.date === todayStr()).length;
 
   const toggleTask = (id) => {
     const task = tasks.find((t) => t.id === id);
-    if (!task) return;
-    if (!task.done) {
-      // Mark done → move to archive after 600ms
-      setTasks((p) => p.map((t) => (t.id === id ? { ...t, done: true } : t)));
-      setTimeout(() => {
-        setTasks((p) => p.filter((t) => t.id !== id));
-        setArchive((p) => [
-          { ...task, done: true, completedAt: Date.now() },
-          ...p,
-        ]);
-      }, 600);
-    }
+    if (!task || task.done) return;
+    setTasks((p) => p.map((t) => (t.id === id ? { ...t, done: true } : t)));
+    setTimeout(() => {
+      setTasks((p) => p.filter((t) => t.id !== id));
+      setArchive((p) => [
+        { ...task, done: true, completedAt: Date.now() },
+        ...p,
+      ]);
+    }, 500);
   };
 
+  const deleteTask = (id) => setTasks((p) => p.filter((t) => t.id !== id));
   const restoreTask = (id) => {
     const task = archive.find((t) => t.id === id);
     if (!task) return;
@@ -1208,12 +1048,10 @@ export default function App() {
   };
 
   const importTasks = (parsed) => {
-    const newTasks = parsed.map((t) => ({
-      ...t,
-      id: nextId.current++,
-      done: false,
-    }));
-    setTasks((p) => [...p, ...newTasks]);
+    setTasks((p) => [
+      ...p,
+      ...parsed.map((t) => ({ ...t, id: nextId.current++, done: false })),
+    ]);
   };
 
   const applyDonate = () => {
@@ -1221,12 +1059,6 @@ export default function App() {
     if (!isNaN(v) && v >= 0) setDonated(v);
     setDonIn("");
   };
-
-  // Period summary counts
-  const periodCounts = PERIODS.slice(1).map((p) => ({
-    ...p,
-    count: tasks.filter((t) => !t.done && t.period === p.id).length,
-  }));
 
   return (
     <div style={S.root}>
@@ -1279,7 +1111,7 @@ export default function App() {
                     textShadow: "0 0 20px rgba(0,200,255,0.3)",
                   }}
                 >
-                  PRODUCER CONTROL CENTER v2.0
+                  PRODUCER CONTROL CENTER v3.0
                 </h1>
               </div>
               <p
@@ -1329,8 +1161,8 @@ export default function App() {
         >
           {[
             { v: `${pct}%`, l: "ВЫПОЛНЕНО", c: "#00C8FF" },
-            { v: doneN, l: "ЗАКРЫТО", c: "#34D399" },
-            { v: activeTasks.length, l: "В РАБОТЕ", c: "#A78BFA" },
+            { v: archive.length, l: "В АРХИВЕ", c: "#34D399" },
+            { v: todayTasks, l: "НА СЕГОДНЯ", c: "#FF9B35" },
             {
               v: donated.toLocaleString("ru-RU") + " ₽",
               l: "ДОНАТОВ",
@@ -1339,7 +1171,16 @@ export default function App() {
             },
           ].map(({ v, l, c, fs }, i) => (
             <div key={i} style={S.card}>
-              <div style={S.num(c, fs || 32)}>{v}</div>
+              <div
+                style={{
+                  fontSize: fs || 32,
+                  fontWeight: 700,
+                  color: c,
+                  lineHeight: 1.1,
+                }}
+              >
+                {v}
+              </div>
               <div
                 style={{
                   fontSize: 11,
@@ -1354,60 +1195,7 @@ export default function App() {
           ))}
         </div>
 
-        {/* PERIOD QUICK STATS */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3,1fr)",
-            gap: 8,
-            marginBottom: 16,
-          }}
-        >
-          {periodCounts.map((p) => (
-            <div
-              key={p.id}
-              style={{
-                background: "rgba(13,18,24,0.7)",
-                border: `1px solid ${periodFilter === p.id ? "rgba(0,200,255,0.3)" : "rgba(0,200,255,0.08)"}`,
-                borderRadius: 4,
-                padding: "10px 14px",
-                cursor: "pointer",
-                transition: "all 0.15s",
-              }}
-              onClick={() =>
-                setPeriodFilter(periodFilter === p.id ? "all" : p.id)
-              }
-            >
-              <div style={S.pTag(p.id)}>{p.label}</div>
-              <div
-                style={{
-                  fontSize: 24,
-                  fontWeight: 700,
-                  color:
-                    p.id === "day"
-                      ? "#00C8FF"
-                      : p.id === "week"
-                        ? "#FF9B35"
-                        : "#A78BFA",
-                  marginTop: 4,
-                }}
-              >
-                {p.count}
-              </div>
-              <div
-                style={{
-                  fontSize: 10,
-                  color: "#3A6A7A",
-                  letterSpacing: "0.1em",
-                }}
-              >
-                задач
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* GOAL PROGRESS */}
+        {/* GOAL */}
         <div style={S.panel("rgba(255,107,53,0.3)")}>
           <div
             style={{
@@ -1539,193 +1327,34 @@ export default function App() {
         {/* ── TASKS TAB ── */}
         {tab === "tasks" && (
           <>
-            {/* Period filter row */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-              {PERIODS.map((p) => (
-                <button
-                  key={p.id}
-                  style={S.pTab(periodFilter === p.id, p)}
-                  onClick={() => setPeriodFilter(p.id)}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            <div style={S.panel()}>
-              <div
+            {/* Import button */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginBottom: 10,
+              }}
+            >
+              <button
                 style={{
+                  ...S.btn("#A78BFA"),
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 10,
-                }}
-              >
-                <div style={S.lbl}>▸ ОЧЕРЕДЬ ЗАДАЧ</div>
-                <button
-                  style={{
-                    ...S.btn("#A78BFA"),
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "6px 14px",
-                  }}
-                  onClick={() => setShowImport(true)}
-                >
-                  <Sparkles size={12} /> ИМПОРТ ПЛАНА
-                </button>
-              </div>
-
-              {/* Category filters */}
-              <div
-                style={{
-                  display: "flex",
                   gap: 6,
-                  marginBottom: 14,
-                  flexWrap: "wrap",
                 }}
+                onClick={() => setShowImport(true)}
               >
-                <button
-                  style={S.catTab(catFilter === "all", {
-                    color: "#00C8FF",
-                    bg: "rgba(0,200,255,0.1)",
-                    border: "rgba(0,200,255,0.3)",
-                  })}
-                  onClick={() => setCatFilter("all")}
-                >
-                  ВСЕ
-                </button>
-                {CATEGORIES.map((c) => (
-                  <button
-                    key={c.id}
-                    style={S.catTab(catFilter === c.id, c)}
-                    onClick={() => setCatFilter(c.id)}
-                  >
-                    {c.label.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-
-              {filtered.length === 0 && (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "24px",
-                    color: "#2A4A5A",
-                    fontSize: 12,
-                    letterSpacing: "0.15em",
-                  }}
-                >
-                  — НЕТ ЗАДАЧ ДЛЯ ЭТОГО ФИЛЬТРА —
-                </div>
-              )}
-
-              {filtered.map((task) => {
-                const cat = getCat(task.category);
-                return (
-                  <div key={task.id} style={S.row(task.done)}>
-                    <button style={S.chk} onClick={() => toggleTask(task.id)}>
-                      {task.done ? (
-                        <CheckSquare size={18} color="#00C8FF" />
-                      ) : (
-                        <Square size={18} color="#2A4A5A" />
-                      )}
-                    </button>
-                    <ChevronRight size={10} color="#2A6A7A" />
-                    <span
-                      style={{
-                        flex: 1,
-                        fontSize: 15,
-                        color: task.done ? "#2A4A5A" : "#C0D8E4",
-                        textDecoration: task.done ? "line-through" : "none",
-                        letterSpacing: "0.04em",
-                      }}
-                    >
-                      {task.text}
-                    </span>
-                    <span style={S.pTag(task.period || "week")}>
-                      {{ day: "ДЕНЬ", week: "НЕДЕЛЯ", month: "МЕСЯЦ" }[
-                        task.period
-                      ] || "НЕДЕЛЯ"}
-                    </span>
-                    <span style={S.pill(cat)}>{cat.label.toUpperCase()}</span>
-                    <button
-                      style={S.iBtn}
-                      onClick={() =>
-                        setTasks((p) => p.filter((t) => t.id !== task.id))
-                      }
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                );
-              })}
-
-              {/* Add task */}
-              {showAdd ? (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    alignItems: "center",
-                    marginTop: 10,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <input
-                    ref={addRef}
-                    style={{ ...S.inp(), flex: 1, minWidth: 180 }}
-                    placeholder="Новая задача..."
-                    value={iText}
-                    onChange={(e) => setIText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") addTask();
-                      if (e.key === "Escape") setShowAdd(false);
-                    }}
-                  />
-                  <select
-                    style={S.sel}
-                    value={iCat}
-                    onChange={(e) => setICat(e.target.value)}
-                  >
-                    {CATEGORIES.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    style={S.sel}
-                    value={iPeriod}
-                    onChange={(e) => setIPeriod(e.target.value)}
-                  >
-                    <option value="day">День</option>
-                    <option value="week">Неделя</option>
-                    <option value="month">Месяц</option>
-                  </select>
-                  <button style={S.btn()} onClick={addTask}>
-                    ADD
-                  </button>
-                  <button style={S.ghost} onClick={() => setShowAdd(false)}>
-                    <X size={13} />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  style={{
-                    ...S.ghost,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    marginTop: 10,
-                    width: "100%",
-                  }}
-                  onClick={() => setShowAdd(true)}
-                >
-                  <Plus size={13} /> ДОБАВИТЬ ЗАДАЧУ
-                </button>
-              )}
+                <Sparkles size={13} /> ИМПОРТ ПЛАНА
+              </button>
             </div>
+
+            {/* Calendar */}
+            <CalendarView
+              tasks={tasks}
+              setTasks={setTasks}
+              onToggle={toggleTask}
+              onDelete={deleteTask}
+            />
 
             {/* Category breakdown */}
             <div style={S.panel()}>
@@ -1739,9 +1368,9 @@ export default function App() {
               >
                 {CATEGORIES.map((cat) => {
                   const ct = tasks.filter(
-                      (t) => t.category === cat.id && !t.done,
-                    ),
-                    cd = archive.filter((t) => t.category === cat.id);
+                    (t) => t.category === cat.id && !t.done,
+                  );
+                  const cd = archive.filter((t) => t.category === cat.id);
                   const total2 = ct.length + cd.length;
                   const cp =
                     total2 === 0 ? 0 : Math.round((cd.length / total2) * 100);
