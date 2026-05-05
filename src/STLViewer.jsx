@@ -1,38 +1,60 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import * as THREE from 'three';
-import { STLLoader } from 'three/addons/loaders/STLLoader.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Box, RotateCcw, Grid3x3, X, Move3d } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from "react";
+import * as THREE from "three";
+import { STLLoader } from "three/addons/loaders/STLLoader.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { Box, RotateCcw, Grid3x3, X, Move3d } from "lucide-react";
 
 const FF = "'Share Tech Mono','Courier New',monospace";
 
 const S = {
-  panel: { background:"rgba(13,18,24,0.85)", border:"1px solid rgba(0,200,255,0.2)", borderRadius:4, padding:"18px 20px", marginBottom:16 },
-  lbl:   { fontSize:11, letterSpacing:"0.25em", color:"#3A6A7A", marginBottom:12, textTransform:"uppercase" },
-  btn:   (active, c="#00C8FF") => ({
-    background: active ? `rgba(${c==="#00C8FF"?"0,200,255":c==="#FF6B35"?"255,107,53":"167,139,250"},0.12)` : "transparent",
+  panel: {
+    background: "rgba(13,18,24,0.85)",
+    border: "1px solid rgba(0,200,255,0.2)",
+    borderRadius: 4,
+    padding: "18px 20px",
+    marginBottom: 16,
+  },
+  lbl: {
+    fontSize: 11,
+    letterSpacing: "0.25em",
+    color: "#3A6A7A",
+    marginBottom: 12,
+    textTransform: "uppercase",
+  },
+  btn: (active, c = "#00C8FF") => ({
+    background: active
+      ? `rgba(${c === "#00C8FF" ? "0,200,255" : c === "#FF6B35" ? "255,107,53" : "167,139,250"},0.12)`
+      : "transparent",
     border: `1px solid ${active ? c : "rgba(0,200,255,0.15)"}`,
     color: active ? c : "#4A7A8A",
-    borderRadius:3, padding:"7px 14px", cursor:"pointer", fontSize:12, fontFamily:FF, letterSpacing:"0.1em",
-    display:"flex", alignItems:"center", gap:5, transition:"all 0.15s",
+    borderRadius: 3,
+    padding: "7px 14px",
+    cursor: "pointer",
+    fontSize: 12,
+    fontFamily: FF,
+    letterSpacing: "0.1em",
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    transition: "all 0.15s",
   }),
 };
 
 export default function STLViewer() {
-  const mountRef      = useRef(null);
-  const rendererRef   = useRef(null);
-  const sceneRef      = useRef(null);
-  const cameraRef     = useRef(null);
-  const controlsRef   = useRef(null);
-  const meshRef       = useRef(null);
-  const frameRef      = useRef(null);
+  const mountRef = useRef(null);
+  const rendererRef = useRef(null);
+  const sceneRef = useRef(null);
+  const cameraRef = useRef(null);
+  const controlsRef = useRef(null);
+  const meshRef = useRef(null);
+  const frameRef = useRef(null);
 
-  const [loaded,      setLoaded]      = useState(false);
-  const [loading,     setLoading]     = useState(false);
-  const [drag,        setDrag]        = useState(false);
-  const [autoRotate,  setAutoRotate]  = useState(true);
-  const [wireframe,   setWireframe]   = useState(false);
-  const [info,        setInfo]        = useState(null);
+  const [loaded, setLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [drag, setDrag] = useState(false);
+  const [autoRotate, setAutoRotate] = useState(true);
+  const [wireframe, setWireframe] = useState(false);
+  const [info, setInfo] = useState(null);
 
   // Init Three.js
   useEffect(() => {
@@ -43,12 +65,12 @@ export default function STLViewer() {
 
     // Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#080B0F');
-    scene.fog = new THREE.Fog('#080B0F', 400, 900);
+    scene.background = new THREE.Color("#080B0F");
+    scene.fog = new THREE.Fog("#080B0F", 400, 900);
     sceneRef.current = scene;
 
     // Grid
-    const grid = new THREE.GridHelper(300, 30, '#0A2030', '#071018');
+    const grid = new THREE.GridHelper(300, 30, "#0A2030", "#071018");
     grid.position.y = -55;
     scene.add(grid);
 
@@ -67,27 +89,27 @@ export default function STLViewer() {
     rendererRef.current = renderer;
 
     // Lights
-    const ambient = new THREE.AmbientLight(0x1A2A3A, 4);
+    const ambient = new THREE.AmbientLight(0x1a2a3a, 4);
     scene.add(ambient);
 
-    const key = new THREE.DirectionalLight(0x00AADD, 5);
+    const key = new THREE.DirectionalLight(0x00aadd, 5);
     key.position.set(150, 200, 150);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
     scene.add(key);
 
-    const fill = new THREE.DirectionalLight(0xFF6B35, 2);
+    const fill = new THREE.DirectionalLight(0xff6b35, 2);
     fill.position.set(-150, 50, -100);
     scene.add(fill);
 
-    const rim = new THREE.DirectionalLight(0xA78BFA, 1.5);
+    const rim = new THREE.DirectionalLight(0xa78bfa, 1.5);
     rim.position.set(0, -100, -200);
     scene.add(rim);
 
     // Shadow plane
     const plane = new THREE.Mesh(
       new THREE.PlaneGeometry(400, 400),
-      new THREE.MeshStandardMaterial({ color: 0x050810, roughness: 1 })
+      new THREE.MeshStandardMaterial({ color: 0x050810, roughness: 1 }),
     );
     plane.rotation.x = -Math.PI / 2;
     plane.position.y = -55;
@@ -119,14 +141,15 @@ export default function STLViewer() {
       camera.updateProjectionMatrix();
       renderer.setSize(W, H);
     };
-    window.addEventListener('resize', onResize);
+    window.addEventListener("resize", onResize);
 
     return () => {
-      window.removeEventListener('resize', onResize);
+      window.removeEventListener("resize", onResize);
       cancelAnimationFrame(frameRef.current);
       controls.dispose();
       renderer.dispose();
-      if (renderer.domElement.parentNode === el) el.removeChild(renderer.domElement);
+      if (renderer.domElement.parentNode === el)
+        el.removeChild(renderer.domElement);
     };
   }, []);
 
@@ -160,7 +183,7 @@ export default function STLViewer() {
 
         // Center + normalize scale
         geometry.computeBoundingBox();
-        const box  = geometry.boundingBox;
+        const box = geometry.boundingBox;
         const center = new THREE.Vector3();
         box.getCenter(center);
         geometry.translate(-center.x, -center.y, -center.z);
@@ -182,9 +205,9 @@ export default function STLViewer() {
         geometry.computeVertexNormals();
 
         const material = new THREE.MeshPhongMaterial({
-          color:     0x0D2A3F,
-          emissive:  0x020810,
-          specular:  0x00C8FF,
+          color: 0x1a5a7a,
+          emissive: 0x051525,
+          specular: 0x00c8ff,
           shininess: 80,
           wireframe: false,
         });
@@ -204,17 +227,17 @@ export default function STLViewer() {
           : geometry.attributes.position.count / 3;
 
         setInfo({
-          name:      file.name.replace(/\.stl$/i, ''),
-          size:      (file.size / 1024).toFixed(0),
-          tris:      Math.round(triCount).toLocaleString('ru-RU'),
-          dims:      `${(size.x).toFixed(1)} × ${(size.y).toFixed(1)} × ${(size.z).toFixed(1)} мм`,
+          name: file.name.replace(/\.stl$/i, ""),
+          size: (file.size / 1024).toFixed(0),
+          tris: Math.round(triCount).toLocaleString("ru-RU"),
+          dims: `${size.x.toFixed(1)} × ${size.y.toFixed(1)} × ${size.z.toFixed(1)} мм`,
         });
 
         setLoaded(true);
         setLoading(false);
         setAutoRotate(true);
       } catch (err) {
-        console.error('STL parse error:', err);
+        console.error("STL parse error:", err);
         setLoading(false);
       }
     };
@@ -225,14 +248,16 @@ export default function STLViewer() {
     e.preventDefault();
     setDrag(false);
     const f = e.dataTransfer.files[0];
-    if (f?.name.toLowerCase().endsWith('.stl')) loadSTL(f);
+    if (f?.name.toLowerCase().endsWith(".stl")) loadSTL(f);
   };
 
   const handleClick = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.stl';
-    input.onchange = (e) => { if (e.target.files[0]) loadSTL(e.target.files[0]); };
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".stl";
+    input.onchange = (e) => {
+      if (e.target.files[0]) loadSTL(e.target.files[0]);
+    };
     input.click();
   };
 
@@ -261,27 +286,54 @@ export default function STLViewer() {
       {/* Drop zone — shown when no model */}
       {!loaded && !loading && (
         <div
-          onDragOver={e => { e.preventDefault(); setDrag(true); }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDrag(true);
+          }}
           onDragLeave={() => setDrag(false)}
           onDrop={handleDrop}
           onClick={handleClick}
           style={{
             border: `1px dashed ${drag ? "#00C8FF" : "rgba(0,200,255,0.2)"}`,
-            borderRadius: 4, padding: "48px 20px", textAlign: "center", cursor: "pointer",
-            background: drag ? "rgba(0,200,255,0.05)" : "rgba(0,0,0,0.2)", transition:"all 0.15s",
+            borderRadius: 4,
+            padding: "48px 20px",
+            textAlign: "center",
+            cursor: "pointer",
+            background: drag ? "rgba(0,200,255,0.05)" : "rgba(0,0,0,0.2)",
+            transition: "all 0.15s",
           }}
         >
-          <Box size={36} color={drag ? "#00C8FF" : "#1A4A5A"} style={{ margin:"0 auto 12px" }}/>
-          <div style={{ fontSize:14, color: drag?"#00C8FF":"#4A7A8A", letterSpacing:"0.12em" }}>
+          <Box
+            size={36}
+            color={drag ? "#00C8FF" : "#1A4A5A"}
+            style={{ margin: "0 auto 12px" }}
+          />
+          <div
+            style={{
+              fontSize: 14,
+              color: drag ? "#00C8FF" : "#4A7A8A",
+              letterSpacing: "0.12em",
+            }}
+          >
             {drag ? "ОТПУСТИ ФАЙЛ" : "ПЕРЕТАЩИ .STL ФАЙЛ"}
           </div>
-          <div style={{ fontSize:11, color:"#2A4A5A", marginTop:5 }}>или нажми для выбора</div>
+          <div style={{ fontSize: 11, color: "#2A4A5A", marginTop: 5 }}>
+            или нажми для выбора
+          </div>
         </div>
       )}
 
       {/* Loading */}
       {loading && (
-        <div style={{ padding:"60px 20px", textAlign:"center", color:"#3A6A7A", fontSize:12, letterSpacing:"0.2em" }}>
+        <div
+          style={{
+            padding: "60px 20px",
+            textAlign: "center",
+            color: "#3A6A7A",
+            fontSize: 12,
+            letterSpacing: "0.2em",
+          }}
+        >
           ЗАГРУЗКА МОДЕЛИ...
         </div>
       )}
@@ -290,7 +342,9 @@ export default function STLViewer() {
       <div
         ref={mountRef}
         style={{
-          width:"100%", borderRadius:4, overflow:"hidden",
+          width: "100%",
+          borderRadius: 4,
+          overflow: "hidden",
           border: loaded ? "1px solid rgba(0,200,255,0.15)" : "none",
           display: loaded ? "block" : "none",
         }}
@@ -298,34 +352,77 @@ export default function STLViewer() {
 
       {/* Controls bar */}
       {loaded && info && (
-        <div style={{ marginTop:12 }}>
+        <div style={{ marginTop: 12 }}>
           {/* Info row */}
-          <div style={{ display:"flex", gap:16, flexWrap:"wrap", marginBottom:10, padding:"8px 12px", background:"rgba(0,0,0,0.3)", borderRadius:3 }}>
-            <span style={{ fontSize:13, color:"#00C8FF", letterSpacing:"0.06em" }}>{info.name}</span>
-            <span style={{ fontSize:11, color:"#3A6A7A" }}>{info.size} KB</span>
-            <span style={{ fontSize:11, color:"#3A6A7A" }}>▲ {info.tris} треуг.</span>
-            <span style={{ fontSize:11, color:"#3A6A7A" }}>⬛ {info.dims}</span>
+          <div
+            style={{
+              display: "flex",
+              gap: 16,
+              flexWrap: "wrap",
+              marginBottom: 10,
+              padding: "8px 12px",
+              background: "rgba(0,0,0,0.3)",
+              borderRadius: 3,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 13,
+                color: "#00C8FF",
+                letterSpacing: "0.06em",
+              }}
+            >
+              {info.name}
+            </span>
+            <span style={{ fontSize: 11, color: "#3A6A7A" }}>
+              {info.size} KB
+            </span>
+            <span style={{ fontSize: 11, color: "#3A6A7A" }}>
+              ▲ {info.tris} треуг.
+            </span>
+            <span style={{ fontSize: 11, color: "#3A6A7A" }}>
+              ⬛ {info.dims}
+            </span>
           </div>
           {/* Button row */}
-          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-            <button style={S.btn(autoRotate)} onClick={() => setAutoRotate(a=>!a)}>
-              <RotateCcw size={13}/> {autoRotate ? "СТОП" : "АВТО"}
-            </button>
-            <button style={S.btn(wireframe, "#FF6B35")} onClick={() => setWireframe(w=>!w)}>
-              <Grid3x3 size={13}/> СЕТКА
-            </button>
-            <button style={S.btn(false)} onClick={resetView}>
-              <Move3d size={13}/> СБРОС КАМЕРЫ
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              style={S.btn(autoRotate)}
+              onClick={() => setAutoRotate((a) => !a)}
+            >
+              <RotateCcw size={13} /> {autoRotate ? "СТОП" : "АВТО"}
             </button>
             <button
-              style={{ ...S.btn(false), marginLeft:"auto", borderColor:"rgba(255,74,74,0.2)", color:"#FF4A4A" }}
+              style={S.btn(wireframe, "#FF6B35")}
+              onClick={() => setWireframe((w) => !w)}
+            >
+              <Grid3x3 size={13} /> СЕТКА
+            </button>
+            <button style={S.btn(false)} onClick={resetView}>
+              <Move3d size={13} /> СБРОС КАМЕРЫ
+            </button>
+            <button
+              style={{
+                ...S.btn(false),
+                marginLeft: "auto",
+                borderColor: "rgba(255,74,74,0.2)",
+                color: "#FF4A4A",
+              }}
               onClick={closeModel}
             >
-              <X size={13}/> ЗАКРЫТЬ
+              <X size={13} /> ЗАКРЫТЬ
             </button>
           </div>
-          <div style={{ fontSize:10, color:"#1A3A4A", marginTop:8, letterSpacing:"0.1em" }}>
-            ЛКМ — вращение &nbsp;·&nbsp; ПКМ — панорама &nbsp;·&nbsp; КОЛЁСИКО — зум
+          <div
+            style={{
+              fontSize: 10,
+              color: "#1A3A4A",
+              marginTop: 8,
+              letterSpacing: "0.1em",
+            }}
+          >
+            ЛКМ — вращение &nbsp;·&nbsp; ПКМ — панорама &nbsp;·&nbsp; КОЛЁСИКО —
+            зум
           </div>
         </div>
       )}

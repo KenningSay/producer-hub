@@ -1,269 +1,1067 @@
-import { useState, useRef, useEffect } from 'react';
-import { CheckSquare, Square, Trash2, Plus, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { useState, useRef, useEffect } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Check,
+  Trash2,
+  X,
+} from "lucide-react";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const FF = "'Share Tech Mono','Courier New',monospace";
-const DAY_NAMES = ['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'];
-
-const CATEGORIES = [
-  { id: "3d",      label: "3D Печать", color: "#FF6B35", bg: "rgba(255,107,53,0.15)", border: "rgba(255,107,53,0.4)" },
-  { id: "stream",  label: "Стрим",     color: "#00C8FF", bg: "rgba(0,200,255,0.12)",  border: "rgba(0,200,255,0.4)" },
-  { id: "coding",  label: "Кодинг",    color: "#A78BFA", bg: "rgba(167,139,250,0.12)",border: "rgba(167,139,250,0.4)" },
-  { id: "content", label: "Контент",   color: "#34D399", bg: "rgba(52,211,153,0.12)", border: "rgba(52,211,153,0.4)" },
+const DAYS_SHORT = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"];
+const DAYS_FULL = [
+  "ПОНЕДЕЛЬНИК",
+  "ВТОРНИК",
+  "СРЕДА",
+  "ЧЕТВЕРГ",
+  "ПЯТНИЦА",
+  "СУББОТА",
+  "ВОСКРЕСЕНЬЕ",
+];
+const MONTHS = [
+  "января",
+  "февраля",
+  "марта",
+  "апреля",
+  "мая",
+  "июня",
+  "июля",
+  "августа",
+  "сентября",
+  "октября",
+  "ноября",
+  "декабря",
 ];
 
-function fmt(d) {
-  return d.toISOString().split('T')[0];
+const CATS = [
+  {
+    id: "3d",
+    label: "3D Печать",
+    color: "#FF6B35",
+    bg: "rgba(255,107,53,0.15)",
+    border: "rgba(255,107,53,0.4)",
+  },
+  {
+    id: "stream",
+    label: "Стрим",
+    color: "#00C8FF",
+    bg: "rgba(0,200,255,0.12)",
+    border: "rgba(0,200,255,0.4)",
+  },
+  {
+    id: "coding",
+    label: "Кодинг",
+    color: "#A78BFA",
+    bg: "rgba(167,139,250,0.12)",
+    border: "rgba(167,139,250,0.4)",
+  },
+  {
+    id: "content",
+    label: "Контент",
+    color: "#34D399",
+    bg: "rgba(52,211,153,0.12)",
+    border: "rgba(52,211,153,0.4)",
+  },
+];
+const getCat = (id) => CATS.find((c) => c.id === id) || CATS[1];
+
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+
+function toDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
+
 function todayStr() {
-  const d = new Date(); d.setHours(0,0,0,0); return fmt(d);
-}
-function getMonday(d) {
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  const mon = new Date(d); mon.setDate(diff); mon.setHours(0,0,0,0);
-  return mon;
+  return toDateStr(new Date());
 }
 
-export default function CalendarView({ tasks, setTasks, onToggle, onDelete }) {
-  const [weekOffset, setWeekOffset] = useState(0);
-  const [addingTo,   setAddingTo]   = useState(null);
-  const [newText,    setNewText]    = useState('');
-  const [newCat,     setNewCat]     = useState('stream');
-  const [dragTask,   setDragTask]   = useState(null);
-  const [dragOver,   setDragOver]   = useState(null);
-  const addRef = useRef();
-  const nextId = useRef(Date.now() + 9999);
-
-  useEffect(() => {
-    if (addingTo && addRef.current) addRef.current.focus();
-  }, [addingTo]);
-
-  // Week days
-  const base = new Date(); base.setHours(0,0,0,0);
-  const monday = getMonday(base);
-  monday.setDate(monday.getDate() + weekOffset * 7);
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday); d.setDate(monday.getDate() + i); return d;
+function getWeekDays(offsetWeeks) {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const dow = now.getDay();
+  const diffToMon = dow === 0 ? -6 : 1 - dow;
+  const mon = new Date(now);
+  mon.setDate(now.getDate() + diffToMon + offsetWeeks * 7);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(mon);
+    d.setDate(mon.getDate() + i);
+    return d;
   });
+}
 
-  const today = todayStr();
-  const activeTasks = tasks.filter(t => !t.done);
-  const tasksForDay = (d) => activeTasks.filter(t => t.date === fmt(d));
-  const backlog     = activeTasks.filter(t => !t.date);
+function dayIndex(d) {
+  return (d.getDay() + 6) % 7;
+} // Mon=0 … Sun=6
 
-  const weekLabel = `${days[0].toLocaleDateString('ru-RU',{day:'numeric',month:'long'})} — ${days[6].toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}`;
+// ─── AddTaskForm ──────────────────────────────────────────────────────────────
 
-  const addTask = (date) => {
-    if (!newText.trim()) return;
-    setTasks(p => [...p, { id: nextId.current++, text: newText.trim(), category: newCat, date, done: false }]);
-    setNewText(''); setAddingTo(null);
-  };
+function AddTaskForm({ onAdd, onCancel }) {
+  const [text, setText] = useState("");
+  const [cat, setCat] = useState("stream");
+  const ref = useRef();
+  useEffect(() => {
+    ref.current?.focus();
+  }, []);
 
-  const moveTask = (taskId, newDate) => {
-    setTasks(p => p.map(t => t.id === taskId ? { ...t, date: newDate || null } : t));
-  };
-
-  const getCat = (id) => CATEGORIES.find(c => c.id === id) || CATEGORIES[1];
-
-  // Drag handlers
-  const onDragStart = (e, task) => { setDragTask(task); e.dataTransfer.effectAllowed = 'move'; };
-  const onDragEnd   = ()         => { setDragTask(null); setDragOver(null); };
-  const onDrop      = (e, date)  => {
-    e.preventDefault();
-    if (dragTask) moveTask(dragTask.id, date);
-    setDragOver(null); setDragTask(null);
-  };
-
-  const TaskCard = ({ task, compact }) => {
-    const cat = getCat(task.category);
-    return (
-      <div
-        draggable
-        onDragStart={e => onDragStart(e, task)}
-        onDragEnd={onDragEnd}
-        style={{
-          background: cat.bg, border: `1px solid ${cat.border}`, borderRadius: 3,
-          padding: compact ? '5px 7px' : '7px 10px',
-          marginBottom: 5, cursor: 'grab', display: 'flex', gap: 5, alignItems: 'flex-start',
-          opacity: dragTask?.id === task.id ? 0.4 : 1, transition: 'opacity 0.15s',
-        }}
-      >
-        <button
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0, marginTop: 1, display: 'flex' }}
-          onClick={() => onToggle(task.id)}
-        >
-          <Square size={11} color={cat.color} />
-        </button>
-        <span style={{ flex: 1, fontSize: compact ? 10 : 11, color: '#C0D8E4', lineHeight: 1.35, fontFamily: FF, wordBreak: 'break-word' }}>
-          {task.text}
-        </span>
-        <button
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0, display: 'flex', marginTop: 1 }}
-          onClick={() => onDelete(task.id)}
-        >
-          <X size={9} color="#2A4A5A" />
-        </button>
-      </div>
-    );
+  const submit = () => {
+    if (!text.trim()) {
+      onCancel();
+      return;
+    }
+    onAdd(text.trim(), cat);
   };
 
   return (
-    <div style={{ background: "rgba(13,18,24,0.85)", border: "1px solid rgba(0,200,255,0.2)", borderRadius: 4, padding: "18px 20px", marginBottom: 16 }}>
-
-      {/* Week nav */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+    <div
+      style={{
+        padding: "12px 16px",
+        background: "rgba(0,200,255,0.04)",
+        borderTop: "1px solid rgba(0,200,255,0.1)",
+      }}
+    >
+      <input
+        ref={ref}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") submit();
+          if (e.key === "Escape") onCancel();
+        }}
+        placeholder="Новая задача..."
+        style={{
+          width: "100%",
+          boxSizing: "border-box",
+          marginBottom: 8,
+          background: "rgba(0,200,255,0.06)",
+          border: "1px solid rgba(0,200,255,0.3)",
+          borderRadius: 3,
+          padding: "8px 12px",
+          color: "#C0D8E4",
+          fontSize: 13,
+          fontFamily: FF,
+          outline: "none",
+        }}
+      />
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <select
+          value={cat}
+          onChange={(e) => setCat(e.target.value)}
+          style={{
+            flex: 1,
+            background: "rgba(0,0,0,0.6)",
+            border: "1px solid rgba(0,200,255,0.2)",
+            borderRadius: 3,
+            padding: "7px 8px",
+            color: "#7AB8C8",
+            fontSize: 12,
+            fontFamily: FF,
+            outline: "none",
+          }}
+        >
+          {CATS.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label}
+            </option>
+          ))}
+        </select>
         <button
-          onClick={() => setWeekOffset(w => w - 1)}
-          style={{ background: 'transparent', border: '1px solid rgba(0,200,255,0.15)', borderRadius: 3, padding: '5px 10px', cursor: 'pointer', color: '#4A7A8A', display: 'flex', alignItems: 'center' }}
-        ><ChevronLeft size={14} /></button>
-
-        <span style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#00C8FF', letterSpacing: '0.12em' }}>{weekLabel}</span>
-
+          onClick={submit}
+          style={{
+            background: "rgba(0,200,255,0.12)",
+            border: "1px solid #00C8FF",
+            color: "#00C8FF",
+            borderRadius: 3,
+            padding: "7px 18px",
+            cursor: "pointer",
+            fontSize: 12,
+            fontFamily: FF,
+          }}
+        >
+          ДОБАВИТЬ
+        </button>
         <button
-          onClick={() => setWeekOffset(0)}
-          style={{ background: weekOffset === 0 ? 'rgba(0,200,255,0.1)' : 'transparent', border: '1px solid rgba(0,200,255,0.2)', borderRadius: 3, padding: '5px 10px', cursor: 'pointer', color: '#00C8FF', fontSize: 10, fontFamily: FF, letterSpacing: '0.1em' }}
-        >СЕГОДНЯ</button>
+          onClick={onCancel}
+          style={{
+            background: "transparent",
+            border: "1px solid rgba(0,200,255,0.15)",
+            color: "#4A7A8A",
+            borderRadius: 3,
+            padding: "7px 10px",
+            cursor: "pointer",
+            fontFamily: FF,
+          }}
+        >
+          <X size={13} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
+// ─── DayDetail ────────────────────────────────────────────────────────────────
+// Full task list for a selected day
+
+function DayDetail({ day, tasks, onToggle, onDelete, onAdd, onMoveToBacklog }) {
+  const [adding, setAdding] = useState(false);
+  const today = todayStr();
+  const dateStr = toDateStr(day);
+  const isToday = dateStr === today;
+
+  const dayName = DAYS_FULL[dayIndex(day)];
+  const dateLabel = `${day.getDate()} ${MONTHS[day.getMonth()]}`;
+
+  return (
+    <div
+      style={{
+        background: "rgba(8,11,15,0.8)",
+        border: `1px solid ${isToday ? "rgba(0,200,255,0.35)" : "rgba(0,200,255,0.15)"}`,
+        borderRadius: 4,
+        overflow: "hidden",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 16px",
+          borderBottom: "1px solid rgba(0,200,255,0.1)",
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontSize: 10,
+              color: isToday ? "#00C8FF" : "#3A6A7A",
+              letterSpacing: "0.25em",
+            }}
+          >
+            {dayName}
+          </div>
+          <div
+            style={{
+              fontSize: 18,
+              fontWeight: 700,
+              color: isToday ? "#00C8FF" : "#8AACBA",
+              marginTop: 1,
+              letterSpacing: "0.05em",
+            }}
+          >
+            {dateLabel}
+            {isToday && (
+              <span
+                style={{
+                  fontSize: 10,
+                  color: "#00C8FF",
+                  marginLeft: 10,
+                  letterSpacing: "0.2em",
+                  opacity: 0.7,
+                }}
+              >
+                СЕГОДНЯ
+              </span>
+            )}
+          </div>
+        </div>
         <button
-          onClick={() => setWeekOffset(w => w + 1)}
-          style={{ background: 'transparent', border: '1px solid rgba(0,200,255,0.15)', borderRadius: 3, padding: '5px 10px', cursor: 'pointer', color: '#4A7A8A', display: 'flex', alignItems: 'center' }}
-        ><ChevronRight size={14} /></button>
+          onClick={() => setAdding((a) => !a)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            background: adding ? "rgba(0,200,255,0.12)" : "transparent",
+            border: "1px solid rgba(0,200,255,0.25)",
+            color: "#00C8FF",
+            borderRadius: 3,
+            padding: "7px 14px",
+            cursor: "pointer",
+            fontSize: 12,
+            fontFamily: FF,
+          }}
+        >
+          <Plus size={13} /> ЗАДАЧА
+        </button>
       </div>
 
-      {/* 7-day grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 16 }}>
-        {days.map((d, i) => {
-          const dateStr  = fmt(d);
-          const isToday  = dateStr === today;
-          const isPast   = dateStr < today;
-          const dayTasks = tasksForDay(d);
-          const isOver   = dragOver === dateStr;
+      {/* Add form */}
+      {adding && (
+        <AddTaskForm
+          onAdd={(text, cat) => {
+            onAdd(text, cat, dateStr);
+            setAdding(false);
+          }}
+          onCancel={() => setAdding(false)}
+        />
+      )}
 
+      {/* Task list */}
+      <div style={{ padding: tasks.length === 0 ? "20px 16px" : "8px 0" }}>
+        {tasks.length === 0 && (
+          <div
+            style={{
+              textAlign: "center",
+              fontSize: 12,
+              color: "#2A4A5A",
+              letterSpacing: "0.15em",
+            }}
+          >
+            — НЕТ ЗАДАЧ — нажми + чтобы добавить
+          </div>
+        )}
+
+        {tasks.map((task, i) => {
+          const cat = getCat(task.category);
           return (
             <div
-              key={i}
-              onDragOver={e => { e.preventDefault(); setDragOver(dateStr); }}
-              onDragLeave={() => setDragOver(null)}
-              onDrop={e => onDrop(e, dateStr)}
+              key={task.id}
               style={{
-                background: isOver ? 'rgba(0,200,255,0.08)' : isToday ? 'rgba(0,200,255,0.06)' : 'rgba(8,11,15,0.6)',
-                border: `1px solid ${isOver ? 'rgba(0,200,255,0.5)' : isToday ? 'rgba(0,200,255,0.35)' : 'rgba(0,200,255,0.08)'}`,
-                borderRadius: 4, padding: '8px 6px', minHeight: 140,
-                display: 'flex', flexDirection: 'column', transition: 'all 0.15s',
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                padding: "12px 16px",
+                borderBottom:
+                  i < tasks.length - 1
+                    ? "1px solid rgba(0,200,255,0.06)"
+                    : "none",
+                borderLeft: `3px solid ${cat.color}`,
+                background: "transparent",
+                transition: "background 0.15s",
               }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "rgba(0,200,255,0.03)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
             >
-              {/* Day header */}
-              <div style={{ textAlign: 'center', marginBottom: 8 }}>
-                <div style={{ fontSize: 9, color: isToday ? '#00C8FF' : isPast ? '#2A3A4A' : '#3A6A7A', letterSpacing: '0.2em' }}>
-                  {DAY_NAMES[i]}
+              {/* Check */}
+              <button
+                onClick={() => onToggle(task.id)}
+                style={{
+                  flexShrink: 0,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "2px 0",
+                  display: "flex",
+                  color: cat.color,
+                  marginTop: 1,
+                }}
+              >
+                <Check size={15} />
+              </button>
+
+              {/* Text block */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {/* Task text — wraps, max 3 lines */}
+                <div
+                  style={{
+                    fontSize: 14,
+                    color: "#C0D8E4",
+                    fontFamily: FF,
+                    lineHeight: 1.5,
+                    // 3-line clamp
+                    display: "-webkit-box",
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {task.text}
                 </div>
-                <div style={{
-                  fontSize: 18, fontWeight: 700, lineHeight: 1.1, marginTop: 2,
-                  color: isToday ? '#00C8FF' : isPast ? '#2A3A4A' : '#5A8A9A',
-                  textShadow: isToday ? '0 0 12px rgba(0,200,255,0.4)' : 'none',
-                }}>{d.getDate()}</div>
-                {dayTasks.length > 0 && (
-                  <div style={{ fontSize: 9, color: isToday ? '#00C8FF' : '#3A5A6A', marginTop: 2 }}>
-                    {dayTasks.length} задач
-                  </div>
-                )}
+                {/* Category badge */}
+                <span
+                  style={{
+                    display: "inline-block",
+                    marginTop: 5,
+                    fontSize: 10,
+                    letterSpacing: "0.12em",
+                    padding: "2px 8px",
+                    background: cat.bg,
+                    border: `1px solid ${cat.border}`,
+                    color: cat.color,
+                    borderRadius: 2,
+                  }}
+                >
+                  {cat.label.toUpperCase()}
+                </span>
               </div>
 
-              {/* Tasks */}
-              <div style={{ flex: 1 }}>
-                {dayTasks.map(task => <TaskCard key={task.id} task={task} compact />)}
-              </div>
-
-              {/* Add button */}
-              {addingTo === dateStr ? (
-                <div style={{ marginTop: 4 }}>
-                  <input
-                    ref={addRef}
-                    style={{
-                      background: 'rgba(0,200,255,0.06)', border: '1px solid rgba(0,200,255,0.25)',
-                      borderRadius: 3, padding: '5px 6px', color: '#C0D8E4', fontSize: 10,
-                      fontFamily: FF, outline: 'none', width: '100%', boxSizing: 'border-box',
-                    }}
-                    placeholder="Задача..."
-                    value={newText}
-                    onChange={e => setNewText(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') addTask(dateStr);
-                      if (e.key === 'Escape') { setAddingTo(null); setNewText(''); }
-                    }}
-                  />
-                  <select
-                    style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(0,200,255,0.15)', borderRadius: 3, padding: '3px 4px', color: '#7AB8C8', fontSize: 9, fontFamily: FF, outline: 'none', width: '100%', marginTop: 3, boxSizing: 'border-box' }}
-                    value={newCat} onChange={e => setNewCat(e.target.value)}
-                  >
-                    {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                  </select>
-                  <div style={{ display: 'flex', gap: 3, marginTop: 3 }}>
-                    <button onClick={() => addTask(dateStr)} style={{ flex: 1, background: 'rgba(0,200,255,0.12)', border: '1px solid rgba(0,200,255,0.3)', color: '#00C8FF', borderRadius: 2, padding: '3px 0', cursor: 'pointer', fontSize: 9, fontFamily: FF }}>OK</button>
-                    <button onClick={() => { setAddingTo(null); setNewText(''); }} style={{ background: 'transparent', border: '1px solid rgba(0,200,255,0.1)', color: '#3A6A7A', borderRadius: 2, padding: '3px 5px', cursor: 'pointer', fontSize: 9 }}>✕</button>
-                  </div>
-                </div>
-              ) : (
+              {/* Actions */}
+              <div
+                style={{
+                  flexShrink: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                  alignItems: "center",
+                }}
+              >
                 <button
-                  onClick={() => setAddingTo(dateStr)}
-                  style={{ background: 'transparent', border: '1px dashed rgba(0,200,255,0.1)', borderRadius: 3, color: '#2A5A6A', cursor: 'pointer', fontSize: 16, padding: '3px', width: '100%', marginTop: 4, transition: 'all 0.15s', fontFamily: FF }}
-                  onMouseEnter={e => { e.target.style.borderColor = 'rgba(0,200,255,0.3)'; e.target.style.color = '#00C8FF'; }}
-                  onMouseLeave={e => { e.target.style.borderColor = 'rgba(0,200,255,0.1)'; e.target.style.color = '#2A5A6A'; }}
-                >+</button>
-              )}
+                  onClick={() => onDelete(task.id)}
+                  title="Удалить"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 3,
+                    color: "#2A4A5A",
+                    display: "flex",
+                    transition: "color 0.15s",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.color = "#FF6B6B")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.color = "#2A4A5A")
+                  }
+                >
+                  <Trash2 size={13} />
+                </button>
+                <button
+                  onClick={() => onMoveToBacklog(task.id)}
+                  title="В бэклог"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 3,
+                    color: "#2A4A5A",
+                    display: "flex",
+                    fontSize: 10,
+                    fontFamily: FF,
+                    transition: "color 0.15s",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.color = "#A78BFA")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.color = "#2A4A5A")
+                  }
+                >
+                  ↓
+                </button>
+              </div>
             </div>
           );
         })}
       </div>
+    </div>
+  );
+}
 
-      {/* Backlog */}
+// ─── WeekStrip ────────────────────────────────────────────────────────────────
+// Compact 7-column strip. Click a day to select it.
+
+function DayCell({ day, tasks, isSelected, isToday, isPast, onClick }) {
+  const dateStr = toDateStr(day);
+  // Get unique category colors for dots
+  const catColors = [...new Set(tasks.map((t) => t.category))].map(
+    (id) => getCat(id).color,
+  );
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        minWidth: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        padding: "10px 4px",
+        borderRadius: 6,
+        cursor: "pointer",
+        background: isSelected
+          ? "rgba(0,200,255,0.12)"
+          : isToday
+            ? "rgba(0,200,255,0.05)"
+            : "transparent",
+        border: `1px solid ${isSelected ? "rgba(0,200,255,0.4)" : isToday ? "rgba(0,200,255,0.2)" : "transparent"}`,
+        transition: "all 0.15s",
+        userSelect: "none",
+      }}
+      onMouseEnter={(e) => {
+        if (!isSelected)
+          e.currentTarget.style.background = "rgba(0,200,255,0.06)";
+      }}
+      onMouseLeave={(e) => {
+        if (!isSelected)
+          e.currentTarget.style.background = isToday
+            ? "rgba(0,200,255,0.05)"
+            : "transparent";
+      }}
+    >
+      {/* Day name */}
       <div
-        onDragOver={e => { e.preventDefault(); setDragOver('backlog'); }}
-        onDragLeave={() => setDragOver(null)}
-        onDrop={e => onDrop(e, null)}
         style={{
-          background: dragOver === 'backlog' ? 'rgba(167,139,250,0.06)' : 'rgba(0,0,0,0.2)',
-          border: `1px solid ${dragOver === 'backlog' ? 'rgba(167,139,250,0.4)' : 'rgba(167,139,250,0.12)'}`,
-          borderRadius: 4, padding: '12px 14px', transition: 'all 0.15s',
+          fontSize: 10,
+          letterSpacing: "0.15em",
+          color: isSelected
+            ? "#00C8FF"
+            : isToday
+              ? "#00C8FF"
+              : isPast
+                ? "#2A3A4A"
+                : "#4A7A8A",
+          marginBottom: 4,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: backlog.length ? 10 : 0 }}>
-          <span style={{ fontSize: 10, color: '#A78BFA', letterSpacing: '0.2em' }}>▸ БЭКЛОГ</span>
-          <span style={{ fontSize: 10, color: '#4A4A7A' }}>— задачи без даты, перетащи в нужный день</span>
-          {backlog.length > 0 && <span style={{ fontSize: 10, color: '#A78BFA', marginLeft: 'auto' }}>{backlog.length} задач</span>}
+        {DAYS_SHORT[dayIndex(day)]}
+      </div>
+
+      {/* Date number */}
+      <div
+        style={{
+          fontSize: 22,
+          fontWeight: 700,
+          lineHeight: 1,
+          color: isSelected
+            ? "#00C8FF"
+            : isToday
+              ? "#00C8FF"
+              : isPast
+                ? "#2A3A4A"
+                : "#7AACBA",
+          textShadow:
+            isSelected || isToday ? "0 0 12px rgba(0,200,255,0.35)" : "none",
+          marginBottom: 6,
+        }}
+      >
+        {day.getDate()}
+      </div>
+
+      {/* Category dots */}
+      <div
+        style={{
+          display: "flex",
+          gap: 3,
+          flexWrap: "wrap",
+          justifyContent: "center",
+          minHeight: 10,
+        }}
+      >
+        {catColors.slice(0, 4).map((c, i) => (
+          <div
+            key={i}
+            style={{ width: 6, height: 6, borderRadius: "50%", background: c }}
+          />
+        ))}
+      </div>
+
+      {/* Task count */}
+      {tasks.length > 0 && (
+        <div
+          style={{
+            marginTop: 5,
+            fontSize: 11,
+            fontWeight: 700,
+            color: isSelected ? "#00C8FF" : "#3A6A7A",
+          }}
+        >
+          {tasks.length}
         </div>
-        {backlog.length === 0 && (
-          <div style={{ fontSize: 11, color: '#1A2A3A', textAlign: 'center', padding: '8px 0', letterSpacing: '0.1em' }}>
-            — ПУСТО — сюда попадают задачи из импорта
-          </div>
+      )}
+    </div>
+  );
+}
+
+// ─── BacklogPanel ─────────────────────────────────────────────────────────────
+
+function BacklogPanel({ tasks, onToggle, onDelete, onAdd, onMoveToDay, days }) {
+  const [adding, setAdding] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const SHOW = 8;
+  const shown = expanded ? tasks : tasks.slice(0, SHOW);
+
+  return (
+    <div
+      style={{
+        background: "rgba(0,0,0,0.2)",
+        border: "1px solid rgba(167,139,250,0.15)",
+        borderRadius: 4,
+        overflow: "hidden",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "12px 16px",
+          borderBottom:
+            tasks.length > 0 || adding
+              ? "1px solid rgba(167,139,250,0.1)"
+              : "none",
+        }}
+      >
+        <span
+          style={{ fontSize: 11, color: "#A78BFA", letterSpacing: "0.2em" }}
+        >
+          ▸ БЭКЛОГ
+        </span>
+        <span style={{ fontSize: 11, color: "#3A3A6A" }}>
+          — задачи без даты, назначь на день
+        </span>
+        {tasks.length > 0 && (
+          <span
+            style={{
+              marginLeft: "auto",
+              fontSize: 13,
+              color: "#A78BFA",
+              fontWeight: 700,
+            }}
+          >
+            {tasks.length}
+          </span>
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 6 }}>
-          {backlog.map(task => <TaskCard key={task.id} task={task} compact={false} />)}
-        </div>
-        {/* Add to backlog */}
         <button
-          onClick={() => setAddingTo('__backlog__')}
-          style={{ background: 'transparent', border: '1px dashed rgba(167,139,250,0.15)', borderRadius: 3, color: '#3A3A6A', cursor: 'pointer', fontSize: 12, padding: '5px', width: '100%', marginTop: backlog.length ? 8 : 0, fontFamily: FF, letterSpacing: '0.1em' }}
-        >+ В БЭКЛОГ</button>
-        {addingTo === '__backlog__' && (
-          <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center' }}>
-            <input
-              autoFocus
-              style={{ flex: 1, background: 'rgba(167,139,250,0.06)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 3, padding: '7px 10px', color: '#C0D8E4', fontSize: 12, fontFamily: FF, outline: 'none' }}
-              placeholder="Новая задача в бэклог..."
-              value={newText}
-              onChange={e => setNewText(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') { if (!newText.trim()) return; setTasks(p => [...p, { id: nextId.current++, text: newText.trim(), category: newCat, date: null, done: false }]); setNewText(''); setAddingTo(null); }
-                if (e.key === 'Escape') { setAddingTo(null); setNewText(''); }
+          onClick={() => setAdding((a) => !a)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            background: adding ? "rgba(167,139,250,0.12)" : "transparent",
+            border: "1px solid rgba(167,139,250,0.25)",
+            color: "#A78BFA",
+            borderRadius: 3,
+            padding: "5px 12px",
+            cursor: "pointer",
+            fontSize: 11,
+            fontFamily: FF,
+          }}
+        >
+          <Plus size={11} /> ЗАДАЧА
+        </button>
+      </div>
+
+      {/* Add form */}
+      {adding && (
+        <AddTaskForm
+          onAdd={(text, cat) => {
+            onAdd(text, cat);
+            setAdding(false);
+          }}
+          onCancel={() => setAdding(false)}
+        />
+      )}
+
+      {/* Empty */}
+      {tasks.length === 0 && !adding && (
+        <div
+          style={{
+            padding: "16px",
+            textAlign: "center",
+            fontSize: 12,
+            color: "#1A2A3A",
+            letterSpacing: "0.1em",
+          }}
+        >
+          — пусто — сюда попадают задачи из импорта
+        </div>
+      )}
+
+      {/* Task list */}
+      {tasks.length > 0 && (
+        <div style={{ padding: "8px 0" }}>
+          {shown.map((task, i) => {
+            const cat = getCat(task.category);
+            return (
+              <div
+                key={task.id}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 12,
+                  padding: "10px 16px",
+                  borderBottom:
+                    i < shown.length - 1
+                      ? "1px solid rgba(167,139,250,0.06)"
+                      : "none",
+                  borderLeft: `3px solid ${cat.color}`,
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "rgba(167,139,250,0.04)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
+              >
+                <button
+                  onClick={() => onToggle(task.id)}
+                  style={{
+                    flexShrink: 0,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "2px 0",
+                    color: cat.color,
+                    display: "flex",
+                  }}
+                >
+                  <Check size={14} />
+                </button>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "#C0D8E4",
+                      fontFamily: FF,
+                      lineHeight: 1.5,
+                      display: "-webkit-box",
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {task.text}
+                  </div>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      marginTop: 4,
+                      fontSize: 10,
+                      letterSpacing: "0.12em",
+                      padding: "2px 7px",
+                      background: cat.bg,
+                      border: `1px solid ${cat.border}`,
+                      color: cat.color,
+                      borderRadius: 2,
+                    }}
+                  >
+                    {cat.label.toUpperCase()}
+                  </span>
+                </div>
+
+                {/* Assign to day select */}
+                <div
+                  style={{
+                    flexShrink: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                  }}
+                >
+                  <select
+                    defaultValue=""
+                    onChange={(e) => {
+                      if (e.target.value) onMoveToDay(task.id, e.target.value);
+                    }}
+                    style={{
+                      background: "rgba(0,0,0,0.6)",
+                      border: "1px solid rgba(0,200,255,0.2)",
+                      borderRadius: 3,
+                      padding: "4px 6px",
+                      color: "#7AB8C8",
+                      fontSize: 11,
+                      fontFamily: FF,
+                      outline: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="" disabled>
+                      → день
+                    </option>
+                    {days.map((d) => (
+                      <option key={toDateStr(d)} value={toDateStr(d)}>
+                        {DAYS_SHORT[dayIndex(d)]} {d.getDate()}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => onDelete(task.id)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 3,
+                      color: "#2A4A5A",
+                      display: "flex",
+                      justifyContent: "center",
+                      transition: "color 0.15s",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.color = "#FF6B6B")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.color = "#2A4A5A")
+                    }
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Show more / less */}
+          {!expanded && tasks.length > SHOW && (
+            <button
+              onClick={() => setExpanded(true)}
+              style={{
+                width: "100%",
+                background: "transparent",
+                border: "none",
+                color: "#4A6A7A",
+                fontSize: 12,
+                fontFamily: FF,
+                padding: "10px",
+                cursor: "pointer",
+                letterSpacing: "0.1em",
               }}
-            />
-            <select style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 3, padding: '7px 6px', color: '#7AB8C8', fontSize: 11, fontFamily: FF, outline: 'none' }} value={newCat} onChange={e => setNewCat(e.target.value)}>
-              {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
-            <button onClick={() => setAddingTo(null)} style={{ background: 'transparent', border: '1px solid rgba(0,200,255,0.1)', color: '#3A6A7A', borderRadius: 3, padding: '7px 10px', cursor: 'pointer', fontFamily: FF }}><X size={12}/></button>
-          </div>
-        )}
+            >
+              ещё {tasks.length - SHOW} задач ↓
+            </button>
+          )}
+          {expanded && tasks.length > SHOW && (
+            <button
+              onClick={() => setExpanded(false)}
+              style={{
+                width: "100%",
+                background: "transparent",
+                border: "none",
+                color: "#3A5A6A",
+                fontSize: 12,
+                fontFamily: FF,
+                padding: "10px",
+                cursor: "pointer",
+                letterSpacing: "0.1em",
+              }}
+            >
+              свернуть ↑
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── CalendarView (main export) ───────────────────────────────────────────────
+
+export default function CalendarView({ tasks, setTasks, onToggle, onDelete }) {
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedDate, setSelectedDate] = useState(todayStr()); // selected day string
+  const nextId = useRef(Date.now() + 99999);
+
+  const days = getWeekDays(weekOffset);
+  const today = todayStr();
+
+  // When week changes, keep selection or default to today if in view
+  useEffect(() => {
+    const inView = days.some((d) => toDateStr(d) === selectedDate);
+    if (!inView) setSelectedDate(toDateStr(days[0]));
+  }, [weekOffset]);
+
+  const active = tasks.filter((t) => !t.done);
+  const forDay = (d) => active.filter((t) => t.date === toDateStr(d));
+  const backlog = active.filter((t) => !t.date);
+
+  const selectedDay =
+    days.find((d) => toDateStr(d) === selectedDate) || days[0];
+  const selectedTasks = active.filter((t) => t.date === selectedDate);
+
+  const addTask = (text, cat, date = null) => {
+    setTasks((p) => [
+      ...p,
+      { id: nextId.current++, text, category: cat, date, done: false },
+    ]);
+  };
+
+  const moveToBacklog = (id) =>
+    setTasks((p) => p.map((t) => (t.id === id ? { ...t, date: null } : t)));
+  const moveToDay = (id, date) =>
+    setTasks((p) => p.map((t) => (t.id === id ? { ...t, date } : t)));
+
+  // Week label
+  const d0 = days[0],
+    d6 = days[6];
+  const weekLabel = `${d0.getDate()} ${MONTHS[d0.getMonth()]} — ${d6.getDate()} ${MONTHS[d6.getMonth()]} ${d6.getFullYear()}`;
+
+  // Category legend (total active)
+  const catCounts = CATS.map((c) => ({
+    ...c,
+    n: active.filter((t) => t.category === c.id).length,
+  })).filter((c) => c.n > 0);
+
+  return (
+    <div
+      style={{
+        background: "rgba(13,18,24,0.85)",
+        border: "1px solid rgba(0,200,255,0.2)",
+        borderRadius: 4,
+        padding: "18px 20px",
+        marginBottom: 16,
+      }}
+    >
+      {/* ── Week navigation ── */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 14,
+        }}
+      >
+        <button
+          onClick={() => setWeekOffset((w) => w - 1)}
+          style={{
+            flexShrink: 0,
+            background: "transparent",
+            border: "1px solid rgba(0,200,255,0.15)",
+            borderRadius: 3,
+            padding: "6px 10px",
+            cursor: "pointer",
+            color: "#4A7A8A",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <ChevronLeft size={14} />
+        </button>
+        <span
+          style={{
+            flex: 1,
+            textAlign: "center",
+            fontSize: 13,
+            color: "#00C8FF",
+            letterSpacing: "0.1em",
+          }}
+        >
+          {weekLabel}
+        </span>
+        <button
+          onClick={() => {
+            setWeekOffset(0);
+            setSelectedDate(today);
+          }}
+          style={{
+            flexShrink: 0,
+            background:
+              weekOffset === 0 ? "rgba(0,200,255,0.1)" : "transparent",
+            border: "1px solid rgba(0,200,255,0.2)",
+            borderRadius: 3,
+            padding: "6px 12px",
+            cursor: "pointer",
+            color: "#00C8FF",
+            fontSize: 11,
+            fontFamily: FF,
+          }}
+        >
+          СЕГОДНЯ
+        </button>
+        <button
+          onClick={() => setWeekOffset((w) => w + 1)}
+          style={{
+            flexShrink: 0,
+            background: "transparent",
+            border: "1px solid rgba(0,200,255,0.15)",
+            borderRadius: 3,
+            padding: "6px 10px",
+            cursor: "pointer",
+            color: "#4A7A8A",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <ChevronRight size={14} />
+        </button>
+      </div>
+
+      {/* ── Category legend ── */}
+      {catCounts.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            gap: 6,
+            flexWrap: "wrap",
+            marginBottom: 14,
+          }}
+        >
+          {catCounts.map((c) => (
+            <span
+              key={c.id}
+              style={{
+                fontSize: 11,
+                letterSpacing: "0.1em",
+                padding: "3px 10px",
+                background: c.bg,
+                border: `1px solid ${c.border}`,
+                color: c.color,
+                borderRadius: 2,
+              }}
+            >
+              {c.label.toUpperCase()} {c.n}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* ── Week strip — 7 equal cells ── */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+          gap: 4,
+          marginBottom: 14,
+        }}
+      >
+        {days.map((d, i) => (
+          <DayCell
+            key={i}
+            day={d}
+            tasks={forDay(d)}
+            isSelected={toDateStr(d) === selectedDate}
+            isToday={toDateStr(d) === today}
+            isPast={toDateStr(d) < today}
+            onClick={() => setSelectedDate(toDateStr(d))}
+          />
+        ))}
+      </div>
+
+      {/* ── Day detail panel ── */}
+      <div style={{ marginBottom: 14 }}>
+        <DayDetail
+          day={selectedDay}
+          tasks={selectedTasks}
+          onToggle={onToggle}
+          onDelete={onDelete}
+          onAdd={addTask}
+          onMoveToBacklog={moveToBacklog}
+        />
+      </div>
+
+      {/* ── Backlog ── */}
+      <BacklogPanel
+        tasks={backlog}
+        onToggle={onToggle}
+        onDelete={onDelete}
+        onAdd={(text, cat) => addTask(text, cat, null)}
+        onMoveToDay={moveToDay}
+        days={days}
+      />
+
+      {/* ── Hint ── */}
+      <div
+        style={{
+          fontSize: 11,
+          color: "#1A3A4A",
+          letterSpacing: "0.1em",
+          marginTop: 10,
+          textAlign: "center",
+        }}
+      >
+        НАЖМИ НА ДЕНЬ → список задач · БЭКЛОГ → выбери день в выпадающем меню
       </div>
     </div>
   );
