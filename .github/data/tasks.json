@@ -1,0 +1,196 @@
+[
+  {
+    "text": "— Добавить в OBS источник захвата видео для лица и для окна принтера",
+    "category": "3d",
+    "period": "day",
+    "id": 1777944527194,
+    "done": false,
+    "date": "2026-05-04"
+  },
+  {
+    "text": "— Поставить телефон на штатив и сделать 5 секунд видео как крутится катушка",
+    "category": "content",
+    "period": "day",
+    "id": 1777944527195,
+    "done": false,
+    "date": "2026-05-05"
+  },
+  {
+    "text": "— Сделать монтаж этой нарезки в простом редакторе добавив надпись База",
+    "category": "content",
+    "period": "day",
+    "id": 1777944527196,
+    "done": false,
+    "date": "2026-05-05"
+  },
+  {
+    "text": "— Загрузить STL модель жетона в онлайн редактор для проверки сетки",
+    "category": "3d",
+    "period": "week",
+    "id": 1777944527197,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Проверить через npm наличие библиотек для работы с API стримов",
+    "category": "stream",
+    "period": "week",
+    "id": 1777944527198,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Написать код который меняет цвет фона на сайте при нажатии кнопки",
+    "category": "coding",
+    "period": "week",
+    "id": 1777944527199,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Добавить в OBS ссылку на твой сайт как браузерный источник",
+    "category": "stream",
+    "period": "week",
+    "id": 1777944527200,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Настроить в профиле донат сервис и привязать вывод средств",
+    "category": "stream",
+    "period": "week",
+    "id": 1777944527201,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Загрузить первый готовый Reels в Instagram и YouTube Shorts",
+    "category": "content",
+    "period": "week",
+    "id": 1777944527202,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Проверить наличие 3D пластика для запуска печати на выходных",
+    "category": "3d",
+    "period": "week",
+    "id": 1777944527203,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Выбрать в Minecraft моды которые подходят под контент стрима",
+    "category": "stream",
+    "period": "week",
+    "id": 1777944527204,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Сделать через код автоматическую смену сцен в OBS по таймеру",
+    "category": "stream",
+    "period": "month",
+    "id": 1777944527205,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Подготовить 3D модель корпуса для Raspberry Pi в стиле кодинг вайб",
+    "category": "3d",
+    "period": "month",
+    "id": 1777944527206,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Настроить регулярный deploy обновлений для своего сайта через git push",
+    "category": "coding",
+    "period": "month",
+    "id": 1777944527207,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Собрать на стриме первые 10 000 рублей через донат",
+    "category": "stream",
+    "period": "week",
+    "id": 1777944527208,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Провести монтаж большого видео о том как ты обустроил место в Мирном",
+    "category": "content",
+    "period": "week",
+    "id": 1777944527209,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Протестировать 3D печать сложных деталей которые требуют поддержек",
+    "category": "3d",
+    "period": "week",
+    "id": 1777944527210,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Завершить код для системы оповещений которая видит каждый новый донат",
+    "category": "stream",
+    "period": "week",
+    "id": 1777944527211,
+    "done": false,
+    "date": null
+  },
+  {
+    "text": "— Открыть OBS и создать новую сцену под названием Stream",
+    "category": "stream",
+    "period": "day",
+    "id": 1777944527193,
+    "done": false,
+    "date": "2026-05-07"
+  },
+  {
+    "text": "— Скачать выбранный STL файл на рабочий стол",
+    "category": "3d",
+    "period": "day",
+    "id": 1777944527189,
+    "done": true,
+    "date": "2026-05-04",
+    "completedAt": 1777949419103
+  },
+  {
+    "text": "— Забить в поиске на Thingiverse фразу Battlefield blank dog tag",
+    "category": "3d",
+    "period": "day",
+    "id": 1777944527188,
+    "done": true,
+    "date": "2026-05-04",
+    "completedAt": 1777949413495
+  },
+  {
+    "text": "— Выполнить первый commit и deploy на хостинг чтобы проверить доступность",
+    "category": "3d",
+    "period": "day",
+    "id": 1777944527192,
+    "done": true,
+    "completedAt": 1777944823081
+  },
+  {
+    "text": "— Создать новую папку под проект и инициализировать в ней git",
+    "category": "coding",
+    "period": "day",
+    "id": 1777944527190,
+    "done": true,
+    "completedAt": 1777944818915
+  },
+  {
+    "text": "— Скопировать код To-Do листа в файл index.html",
+    "category": "coding",
+    "period": "day",
+    "id": 1777944527191,
+    "done": true,
+    "completedAt": 1777944815432
+  }
+]
