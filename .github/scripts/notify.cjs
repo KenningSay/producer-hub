@@ -1,8 +1,9 @@
 const https = require('https');
+const fs    = require('fs');
+const path  = require('path');
 
 const TOKEN   = process.env.TELEGRAM_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-const RAW     = process.env.TASKS_DATA;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -16,7 +17,6 @@ function toDateStr(d) {
 function todayStr() { return toDateStr(new Date()); }
 
 function getHourMSK() {
-  // GitHub Actions runs in UTC, convert to MSK (UTC+3)
   return (new Date().getUTCHours() + 3) % 24;
 }
 
@@ -38,7 +38,10 @@ function sendMessage(text) {
       hostname: 'api.telegram.org',
       path: `/bot${TOKEN}/sendMessage`,
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
     }, res => {
       let data = '';
       res.on('data', chunk => data += chunk);
@@ -63,27 +66,28 @@ async function main() {
     process.exit(1);
   }
 
-  // Parse tasks from secret (JSON array)
+  // Read tasks from file in repo
   let tasks = [];
+  const tasksPath = path.join(__dirname, '../data/tasks.json');
   try {
-    tasks = RAW ? JSON.parse(RAW) : [];
+    const raw = fs.readFileSync(tasksPath, 'utf8');
+    tasks = JSON.parse(raw);
+    console.log(`Loaded ${tasks.length} tasks from tasks.json`);
   } catch (e) {
-    console.log('No tasks data or invalid JSON, sending empty report');
+    console.log('tasks.json not found or invalid, using empty list');
   }
 
-  const today    = todayStr();
-  const hourMSK  = getHourMSK();
-  const isMorning = hourMSK < 12;
+  const today      = todayStr();
+  const hourMSK    = getHourMSK();
+  const isMorning  = hourMSK < 12;
 
-  const activeTasks  = tasks.filter(t => !t.done);
-  const todayTasks   = activeTasks.filter(t => t.date === today);
-  const doneTasks    = tasks.filter(t => t.done);
-  const backlog      = activeTasks.filter(t => !t.date);
+  const activeTasks     = tasks.filter(t => !t.done);
+  const todayTasks      = activeTasks.filter(t => t.date === today);
+  const backlog         = activeTasks.filter(t => !t.date);
 
-  // ── Date label ──
   const now = new Date();
   const dateLabel = now.toLocaleDateString('ru-RU', {
-    weekday: 'long', day: 'numeric', month: 'long'
+    weekday: 'long', day: 'numeric', month: 'long',
   });
 
   let message = '';
@@ -94,10 +98,9 @@ async function main() {
     message += `📅 ${dateLabel}\n\n`;
 
     if (todayTasks.length === 0) {
-      message += `✨ На сегодня задач нет — добавь план на <a href="https://hub.layerp.ru">hub.layerp.ru</a>\n`;
+      message += `✨ На сегодня задач нет\nДобавь план: <a href="https://hub.layerp.ru">hub.layerp.ru</a>\n`;
     } else {
-      message += `<b>📋 ЗАДАЧИ НА СЕГОДНЯ (${todayTasks.length}):</b>\n`;
-      // Group by category
+      message += `<b>📋 ЗАДАЧИ НА СЕГОДНЯ — ${todayTasks.length} шт:</b>\n`;
       const grouped = {};
       todayTasks.forEach(t => {
         if (!grouped[t.category]) grouped[t.category] = [];
@@ -117,45 +120,37 @@ async function main() {
 
   } else {
     // ── ВЕЧЕРНИЙ ОТЧЁТ ──
-    const completedToday = doneTasks.filter(t => {
-      if (!t.completedAt) return false;
+    const completedToday = tasks.filter(t => {
+      if (!t.done || !t.completedAt) return false;
       return toDateStr(new Date(t.completedAt)) === today;
     });
 
     message += `🌆 <b>ВЕЧЕРНИЙ ОТЧЁТ</b>\n`;
     message += `📅 ${dateLabel}\n\n`;
 
-    // Done today
     if (completedToday.length > 0) {
-      message += `✅ <b>СДЕЛАНО СЕГОДНЯ (${completedToday.length}):</b>\n`;
-      completedToday.forEach(t => {
-        message += `  ✓ ${t.text}\n`;
-      });
+      message += `✅ <b>СДЕЛАНО СЕГОДНЯ — ${completedToday.length} шт:</b>\n`;
+      completedToday.forEach(t => { message += `  ✓ ${t.text}\n`; });
     } else {
       message += `😅 Сегодня задачи ещё не закрыты\n`;
     }
 
-    // Remaining today
     if (todayTasks.length > 0) {
-      message += `\n⏳ <b>ОСТАЛОСЬ НА СЕГОДНЯ (${todayTasks.length}):</b>\n`;
+      message += `\n⏳ <b>ОСТАЛОСЬ НА СЕГОДНЯ — ${todayTasks.length} шт:</b>\n`;
       todayTasks.forEach(t => { message += `  • ${t.text}\n`; });
     } else if (completedToday.length > 0) {
       message += `\n🔥 Все задачи на сегодня выполнены!\n`;
     }
 
-    // Stats
     const totalActive = activeTasks.length;
     message += `\n📊 Всего активных задач: <b>${totalActive}</b>`;
     if (backlog.length > 0) message += ` (${backlog.length} в бэклоге)`;
-
     message += `\n\n🎯 <a href="https://hub.layerp.ru">Открыть дашборд</a>`;
   }
 
-  console.log('Sending message...');
-  console.log(message);
-
+  console.log('Sending message...\n', message);
   await sendMessage(message);
-  console.log('Message sent successfully!');
+  console.log('Done!');
 }
 
 main().catch(err => {

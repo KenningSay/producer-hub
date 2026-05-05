@@ -1,3 +1,4 @@
+import SyncButton from "./SyncButton.jsx";
 import { useState, useEffect, useRef } from "react";
 import {
   Target,
@@ -1114,6 +1115,7 @@ export default function App() {
                   PRODUCER CONTROL CENTER v3.0
                 </h1>
               </div>
+              <SyncButton tasks={tasks} archive={archive} ghCfg={ghCfg} />
               <p
                 style={{
                   fontSize: 13,

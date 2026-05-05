@@ -23,5 +23,4 @@ jobs:
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TASKS_DATA: ${{ secrets.TASKS_DATA }}
         run: node .github/scripts/notify.cjs
